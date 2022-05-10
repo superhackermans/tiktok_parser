@@ -6,10 +6,6 @@ import json
 # milliseconds_buffer = '5'
 vid_dir_in = "./files/INPUT/"
 vid_dir_out = "./files/OUTPUT/"
-width = 0
-height = 0
-startx = 0
-starty = 0
 
 file_suffix = ".mp4"
 
@@ -19,7 +15,7 @@ def input_to_output_filename(filename, filesuffix):
     return filename[:dot_index] + filesuffix
 
 
-def find_last_colon(time):
+def before_last_colon(time):
     dot_index = time.rfind(":")
     return time[:dot_index]
 
@@ -36,14 +32,13 @@ def before_dot(time):
 
 def force_time_format(time):
     # force format into 00:00:00.00
-    # incorrect_time_formats = ['%H:%M:%S', '%M:%S.%f', '%M:%S']
     correct_time_format = '%H:%M:%S.%f'
     while True:
         try:
             datetime.strptime(time, correct_time_format)
             return time
         except ValueError:
-            # '%M:%S' works for base case
+            # '%M:%S'
             if time.count(":") == 1 and '.' not in time:
                 time = f"{time}.00"
                 if len(time) < 8:
@@ -52,15 +47,14 @@ def force_time_format(time):
                     pass
             # '%M:%S.%f'
             elif time.count(":") == 1 and '.' in time:
-                if len(find_last_colon(time)) == 1:
+                if len(before_last_colon(time)) == 1:
                     time = f"0{time}"
                     time = f"00:{time}"
                 else:
                     time = f"00:{time}"
-
             # '%H:%M:%S' -> add %f
             elif time.count(":") == 2 and '.' not in time:
-                if len(find_last_colon(find_last_colon(time))) == 1:
+                if len(before_last_colon(before_last_colon(time))) == 1:
                     time = f"0{time}.00"
                 else:
                     time = f"{time}.00"
@@ -72,7 +66,7 @@ def force_time_format(time):
                 else:
                     time = f"00:{time}"
             elif time.count(":") == 2 and '.' in time:
-                if len(find_last_colon(find_last_colon(time))) == 1:
+                if len(before_last_colon(before_last_colon(time))) == 1:
                     time = f"0{time}"
 
 
@@ -152,32 +146,44 @@ def concat(directory):
         os.remove(f"{directory}{newly_trimmed_clip}")
 
 
-# def move_and_crop_file(directory):
-#     command = f'ffmpeg -i {input_file} -filter:v "crop=out_{width}:out_{height}:{startx}:{starty}" {output_file}'
-#     subprocess.call(command, shell=True)
+def move_and_crop_file(directory):
+    width = 1080
+    height = 1880 # originally 1920
+    startx = 1380
+    starty = 138
+    video_files = []
+    for file in os.listdir(directory):
+        if file.endswith(".MP4") or file.endswith(".mp4") and "FINAL" in file and "cropped" not in file:
+            video_files.append(file)
+    if not video_files:
+        print("No input video detected")
+    video_files = sorted(video_files)
+
+    for video in video_files:
+        input_file = f"{directory}{video}"
+        output_file = f"{directory}{video}".replace('cropped', '')
+        command = f'ffmpeg -y -i {input_file} -filter:v "crop={width}:{height}:{startx}:{starty}" {output_file}'
+        subprocess.call(command, shell=True)
+        os.remove(input_file)
 
 
 def run():
     print("What are the time segments?")
     time_segments = input()
-    # if the input is a list of time segments
+    # if the input is a list of time segments, load as lists. else just one at a time.
     if time_segments[0] == "[":
         time_segments = json.loads(time_segments)
         for time_segment in time_segments:
             trim(time_segment, vid_dir_in)
-            concat(vid_dir_out)
+        concat(vid_dir_out)
     else:
         trim(time_segments, vid_dir_in)
         concat(vid_dir_out)
+    #
+    move_and_crop_file(vid_dir_out)
 
 
 if __name__ == '__main__':
     run()
 
-# Video 1 - What surprised you about your MBA experience?
-# 15:28 - 15:40, 15:45 - 15:55, 16:00 - 16:07
-# Video 2 - HBS’ culture
-# 8:44 - 8:52, 9:20 - 9:35, 9:47 - 10:01
-# Video 3 - Any HBS essay tips?
-# 25:21 - 25:26, 25:33 - 25:39, 26:00 - 26:19, 26:30 - 26:38'
-# ["15:28 - 15:40, 15:45 - 15:55, 16:00 - 16:07", "8:44 - 8:52, 9:20 - 9:35, 9:47 - 10:01", "25:21 - 25:26, 25:33 - 25:39, 26:00 - 26:19, 26:30 - 26:38"]
+["15:28 - 15:40, 15:45 - 15:55, 16:00 - 16:07", "8:44 - 8:52, 9:20 - 9:35, 9:47 - 10:01", "25:21 - 25:26, 25:33 - 25:39, 26:00 - 26:19, 26:30 - 26:38"]
